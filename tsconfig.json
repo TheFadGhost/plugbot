@@ -17,7 +17,11 @@
     "declarationMap": true,
     "sourceMap": true,
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    "baseUrl": ".",
+    "paths": {
+      "plugbot": ["./src/index.ts"]
+    }
   },
-  "include": ["src"]
+  "include": ["src", "tests", "scripts"]
 }
