@@ -1,0 +1,24 @@
+node_modules/
+dist/
+coverage/
+
+# Local configuration and state - never commit real credentials or chat data
+config.json
+config.*.json
+!config.example.json
+*.local.json
+.env
+.env.*
+
+# Persistent plugin storage
+data/
+*.plugbot-storage.json
+storage*.json
+!storage.example.json
+
+# Logs
+*.log
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
