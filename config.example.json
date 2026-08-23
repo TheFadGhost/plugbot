@@ -1,0 +1,39 @@
+{
+  "adapter": {
+    "type": "mock",
+    "options": {}
+  },
+  "bot": {
+    "username": "plugbot"
+  },
+  "plugins": {
+    "dir": "plugins",
+    "disabled": [],
+    "isolation": "thread"
+  },
+  "commands": {
+    "prefix": "!",
+    "mentionAliases": ["plugbot:"]
+  },
+  "permissions": {
+    "adminUserIds": [],
+    "denyByDefaultAdmin": false
+  },
+  "storage": {
+    "file": "data/storage.json"
+  },
+  "logging": {
+    "level": "info",
+    "json": false,
+    "theme": "dark"
+  },
+  "limits": {
+    "handlerTimeoutMs": 5000,
+    "breakerThreshold": 5,
+    "breakerWindowMs": 60000,
+    "breakerCooldownMs": 30000,
+    "userCommandsPerMinute": 30,
+    "shutdownDrainMs": 10000
+  },
+  "pluginConfigs": {}
+}

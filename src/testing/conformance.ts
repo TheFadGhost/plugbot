@@ -1,6 +1,4 @@
-import { describe, expect, it } from "vitest";
-import type { Adapter, AdapterHost } from "../adapter/adapter.js";
-import type { Capabilities } from "../adapter/adapter.js";
+import type { Adapter, AdapterHost, Capabilities } from "../adapter/adapter.js";
 import { AdapterOperationError, CapabilityError } from "../errors.js";
 import type { ChannelKind } from "../types.js";
 
@@ -333,11 +331,12 @@ export async function runAdapterConformance(
   return { adapter: adapter.name, checks, failures };
 }
 
-export function describeAdapterConformance(
+export async function describeAdapterConformance(
   suiteName: string,
   factory: () => Adapter | Promise<Adapter>,
   options?: ConformanceOptions,
-): void {
+): Promise<void> {
+  const { describe, expect, it } = await import("vitest");
   describe(`adapter conformance: ${suiteName}`, () => {
     it("passes every conformance check", async () => {
       const report = await runAdapterConformance(factory, options);

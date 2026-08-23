@@ -69,7 +69,6 @@ export default definePlugin({
     digestChannel: { type: "string", required: true },
     postTime: { type: "string", default: "09:00" },
   },
-
   commands: {
     note: {
       description: "Record a standup note.",
@@ -133,13 +132,24 @@ export default definePlugin({
 
 - `definePlugin` is an identity function. Its only job is type inference and
   giving editors a place to hang documentation. It has no side effects.
+- A command with subcommands and no `run` is a pure group: invoking it prints
+  guidance instead of erroring. Aliases resolve within their parent command's
+  scope (`poll vote` aliased `v` is reachable as `!poll v`, not bare `!v`).
 - Configuration reaches plugins as a validated typed object (`ctx.config`
-  shaped by `configSchema`). Plugins never read environment variables or files.
+  shaped by `configSchema`). Values come from the top-level `pluginConfigs`
+  config section keyed by plugin name; declared defaults apply, types are
+  enforced host-side, and unknown or missing keys fail the load naming the
+  exact key. Plugins never read environment variables or files.
+- Bundled example plugins use plain object specs with type-only imports;
+  they execute inside worker threads where package self-imports cannot
+  resolve. Published plugins installed from npm import `{ definePlugin }`
+  from `"plugbot"` normally.
 - Cross-plugin communication does not exist in v1. If two plugins need to
-  talk, they talk through shared storage keys is forbidden too - the answer is
-  a shared listener on the same platform messages. This is deliberate.
-- Time comes from an injected clock. Scheduled jobs and timeouts consult it so
-  tests can advance time deterministically.
+  talk, they talk through shared listener on the same platform messages.
+  This is deliberate.
+- Time comes from an injected clock. Scheduled jobs and timeouts consult it
+  so tests can advance time deterministically. Handler invocations carry
+  fresh time across the worker boundary on every call.
 - Handlers receive `ctx.signal` (AbortSignal). It aborts on handler timeout,
   plugin reload, and shutdown. Long loops check it.
 

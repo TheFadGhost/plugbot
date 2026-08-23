@@ -10,8 +10,10 @@ import type { MetricsSnapshot, RegistryCounts, RunningBot, StopSummary } from ".
 import { ManualClock } from "./manualClock.js";
 
 const HARNESS_ROOT = resolve("tests", "tmp-harness");
-const QUIET_POLL_MS = 10;
-const QUIET_CAP_MS = 3000;
+const QUIET_POLL_MS = 25;
+const QUIET_STABLE_FRAMES = 4;
+const QUIET_FIRST_CHANGE_MS = 400;
+const QUIET_CAP_MS = 6000;
 const CLEANUP_ATTEMPTS = 8;
 const CLEANUP_RETRY_MS = 150;
 
@@ -257,13 +259,29 @@ export class TestBot {
   }
 
   private async awaitQuiet(): Promise<void> {
-    const deadline = Date.now() + QUIET_CAP_MS;
+    const startedAt = Date.now();
+    const deadline = startedAt + QUIET_CAP_MS;
     let previous = this.lastSeq();
-    while (Date.now() < deadline) {
+    let changed = false;
+    while (!changed && Date.now() - startedAt < QUIET_FIRST_CHANGE_MS && Date.now() < deadline) {
       await delay(QUIET_POLL_MS);
       const current = this.lastSeq();
-      if (current === previous) return;
-      previous = current;
+      if (current !== previous) {
+        changed = true;
+        previous = current;
+      }
+    }
+    let stableFrames = 0;
+    while (stableFrames < QUIET_STABLE_FRAMES && Date.now() < deadline) {
+      await delay(QUIET_POLL_MS);
+      const current = this.lastSeq();
+      if (current === previous) {
+        stableFrames += 1;
+      } else {
+        stableFrames = 0;
+        previous = current;
+        changed = true;
+      }
     }
   }
 }

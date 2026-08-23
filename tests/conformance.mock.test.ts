@@ -5,7 +5,7 @@ import {
   runAdapterConformance,
 } from "../src/testing/conformance.js";
 
-describeAdapterConformance("mock", () => new MockAdapter());
+await describeAdapterConformance("mock", () => new MockAdapter());
 
 describe("mock conformance direct report", () => {
   it("reports zero failures across every check", async () => {

@@ -22,9 +22,10 @@ export interface ReplDependencies {
 }
 
 const READY_LINE = "mock adapter ready. try !help";
-const FRAME_MS = 10;
-const QUIET_FRAMES = 2;
-const WAIT_CAP_MS = 2000;
+const FRAME_MS = 25;
+const QUIET_FRAMES = 3;
+const FIRST_CHANGE_MS = 250;
+const WAIT_CAP_MS = 3000;
 const CTRL_C_EXIT_MS = 2000;
 
 function delay(ms: number): Promise<void> {
@@ -40,8 +41,20 @@ function maxSeq(deliveries: readonly MockDelivery[]): number {
 }
 
 async function waitForQuiet(mock: MockAdapter): Promise<void> {
-  const deadline = Date.now() + WAIT_CAP_MS;
+  const startedAt = Date.now();
+  const deadline = startedAt + WAIT_CAP_MS;
   let observedSeq = maxSeq(mock.deliveries());
+  const changedAt = await (async () => {
+    while (Date.now() - startedAt < FIRST_CHANGE_MS && Date.now() < deadline) {
+      await delay(FRAME_MS);
+      const seq = maxSeq(mock.deliveries());
+      if (seq !== observedSeq) {
+        observedSeq = seq;
+        return true;
+      }
+    }
+    return false;
+  })();
   let stableFrames = 0;
   while (stableFrames < QUIET_FRAMES && Date.now() < deadline) {
     await delay(FRAME_MS);

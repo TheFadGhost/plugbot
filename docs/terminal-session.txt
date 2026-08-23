@@ -1,0 +1,28 @@
+mock adapter ready. try !help
+
+[#general] plugbot: Commands:
+  mystats - Report dispatch counters.
+  note - Moderation notes.
+    note add - Add a note about a user.
+    note count - Count notes across all users.
+    note show - Show notes for a user.
+  ping - Reply with pong.
+  poll - Run channel polls.
+    poll close - Close a poll and declare a winner.
+    poll start - Start a poll.
+    poll status - Show tallies for a poll.
+    poll vote - Vote on the latest open poll here.
+  forget - Remove a pending reminder.
+  remind - Set a reminder.
+  reminders - List pending reminders.
+Run "!help <command>" for details.
+
+you> [#general] plugbot: reminder r6 set for 1h from now
+
+you> [#general] plugbot: poll p5: lunch?
+1. ramen
+2. salad
+
+you> reacted [#general] :+1:
+
+you> [#general] plugbot: seen 4 messages, avg dispatch 4.8ms (last 1.0)

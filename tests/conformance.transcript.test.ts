@@ -7,7 +7,7 @@ const TRANSCRIPT_TEXT = [
   "",
 ].join("\n");
 
-describeAdapterConformance(
+await describeAdapterConformance(
   "transcript",
   () => new TranscriptAdapter({ transcriptText: TRANSCRIPT_TEXT }),
   { channels: ["general"] },
