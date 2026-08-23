@@ -43,6 +43,7 @@ interface BaseContextValue {
   name: string;
   logger: Logger;
   store: PluginStore;
+  config: Record<string, unknown>;
   capabilities: Capabilities;
   clock: Clock;
   signal: AbortSignal;
@@ -134,8 +135,7 @@ export class InlinePluginRuntime implements PluginRuntime {
     if (initFn !== undefined) {
       const controller = new AbortController();
       const base = this.#base(controller.signal);
-      const ctx = { ...base, config: this.#resolvedConfig() } as never;
-      await this.#raceTimeout("init", "init", () => initFn(ctx), this.#limits.handlerTimeoutMs);
+      await this.#raceTimeout("init", "init", () => initFn(base as never), this.#limits.handlerTimeoutMs);
     }
   }
 
@@ -242,6 +242,7 @@ export class InlinePluginRuntime implements PluginRuntime {
       name: this.name,
       logger: this.#pluginLogger,
       store: this.#store,
+      config: this.#resolvedConfig(),
       capabilities: this.#capabilities,
       clock: this.#clock,
       signal,

@@ -132,18 +132,34 @@ export default definePlugin({
 
 - `definePlugin` is an identity function. Its only job is type inference and
   giving editors a place to hang documentation. It has no side effects.
-- A command with subcommands and no `run` is a pure group: invoking it prints
-  guidance instead of erroring. Aliases resolve within their parent command's
-  scope (`poll vote` aliased `v` is reachable as `!poll v`, not bare `!v`).
-- Configuration reaches plugins as a validated typed object (`ctx.config`
-  shaped by `configSchema`). Values come from the top-level `pluginConfigs`
-  config section keyed by plugin name; declared defaults apply, types are
-  enforced host-side, and unknown or missing keys fail the load naming the
-  exact key. Plugins never read environment variables or files.
+- A command with subcommands and no `run` is a pure group: invoking it replies
+  `"name" needs a subcommand - try "!help name"`. Aliases resolve within
+  their parent command's scope (`poll vote` aliased `v` is reachable as
+  `!poll v`, not bare `!v`).
+- Arguments are positional in schema declaration order; there are no flags.
+  Tokens map to schema keys left to right; a key with `default` may be
+  omitted only when no tokens remain for it. Coercion units: `duration`
+  accepts `<number><ms|s|m|h|d>` (for example `90s`, `5m`, `2h`) and yields
+  milliseconds; `number` accepts plain decimal integers or floats. `choices`
+  matches exactly (case-sensitive) after coercion; violations produce a
+  generated usage reply naming the argument.
+- Plugin configuration values come from the top-level `pluginConfigs` config
+  section keyed by plugin name. Declared defaults apply, types are enforced
+  host-side, unknown keys fail the load naming the key, and the validated
+  object reaches every context as `ctx.config`. With
+  `definePlugin`, `init`'s `ctx.config` is fully typed by `configSchema`;
+  other contexts type it as `Record<string, unknown>` - stash typed pieces
+  in `init` when handlers need them.
+- Listener cooldowns (`cooldownMs`) are per plugin + listener + channel:
+  the first matching message in a channel fires, repeats within the window
+  are silently skipped.
+- Scheduled jobs' `dailyAt: "HH:MM"` uses the host's local timezone;
+  `everyMs` clamps to a 1000ms minimum.
 - Bundled example plugins use plain object specs with type-only imports;
   they execute inside worker threads where package self-imports cannot
   resolve. Published plugins installed from npm import `{ definePlugin }`
-  from `"plugbot"` normally.
+  from `"plugbot"` normally - as does any drop-in plugin once plugbot is an
+  installed dependency of the project.
 - Cross-plugin communication does not exist in v1. If two plugins need to
   talk, they talk through shared listener on the same platform messages.
   This is deliberate.
@@ -415,7 +431,7 @@ an error either way.
 | threads | yes | yes (flat replay) | no |
 | typing | yes | no | no |
 | memberEvents | yes | yes (from script) | yes |
-| userLookup | yes | yes | partial (WHOIS) |
+| userLookup | yes | yes | no (WHOIS is out of scope for v1) |
 | channelLookup | yes | yes | yes |
 | roles | yes | yes | yes (channel ops) |
 

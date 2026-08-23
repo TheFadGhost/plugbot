@@ -116,6 +116,7 @@ function buildBaseContext(signal: AbortSignal) {
     name: currentEnv.pluginName,
     logger: loggerWrapper,
     store: storeProxy(),
+    config: currentEnv.config,
     capabilities: currentEnv.capabilities,
     clock: { now: (): number => currentEnv.nowMs },
     signal,

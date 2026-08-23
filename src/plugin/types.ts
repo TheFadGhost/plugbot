@@ -48,15 +48,32 @@ export interface PluginBaseContext {
   readonly name: string;
   readonly logger: Logger;
   readonly store: PluginStore;
+  /** Validated plugin config values (see configSchema). */
+  readonly config: Record<string, unknown>;
   readonly capabilities: Capabilities;
   readonly clock: Clock;
   readonly signal: AbortSignal;
 }
 
-export interface PluginContext extends PluginBaseContext {
-  /** Validated plugin config, shaped by configSchema. */
-  readonly config: Record<string, unknown>;
+export interface PluginContext<C extends Record<string, unknown> = Record<string, unknown>>
+  extends PluginBaseContext {
+  readonly config: C;
 }
+
+export type ParsedPluginConfig<S extends PluginConfigSchema> = {
+  [K in keyof S & string]: InferConfigValue<NonNullable<S[K]>>;
+};
+
+export type InferConfigValue<F extends PluginConfigField> =
+  F["type"] extends "string"
+    ? string
+    : F["type"] extends "number"
+      ? number
+      : F["type"] extends "boolean"
+        ? boolean
+        : F["type"] extends "string[]"
+          ? string[]
+          : unknown;
 
 export interface CommandContext<A extends Record<string, unknown> = Record<string, unknown>>
   extends PluginBaseContext {
@@ -175,22 +192,26 @@ export type PluginConfigSchema = Readonly<Record<string, PluginConfigField>>;
 export type NextFn = () => Promise<void>;
 export type Middleware = (message: Message, next: NextFn) => Promise<void> | void;
 
-export interface PluginSpec {
+export interface PluginSpec<S extends PluginConfigSchema = PluginConfigSchema> {
   readonly name: string;
   readonly version?: string;
   readonly description?: string;
   readonly isolation?: "thread" | "inline";
-  readonly configSchema?: PluginConfigSchema;
+  readonly configSchema?: S;
   readonly commands?: Readonly<Record<string, CommandDef<ArgsSchema>>>;
   readonly listeners?: readonly ListenerDef[];
   readonly jobs?: readonly JobDef[];
   readonly events?: PluginEventHandlers;
   middleware?: Middleware[];
-  init?(ctx: PluginContext): void | Promise<void>;
+  init?(ctx: PluginContext<ParsedPluginConfig<S>>): void | Promise<void>;
   shutdown?(): void | Promise<void>;
 }
 
-/** Identity function. Type inference only; no side effects, ever. */
-export function definePlugin(spec: PluginSpec): PluginSpec {
+/**
+ * Identity function. Type inference only; no side effects, ever. The
+ * configSchema generic flows into init's ctx.config so declared defaults
+ * and types reach the author without casts.
+ */
+export function definePlugin<S extends PluginConfigSchema>(spec: PluginSpec<S>): PluginSpec {
   return spec;
 }

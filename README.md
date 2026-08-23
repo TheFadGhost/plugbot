@@ -11,6 +11,15 @@ git clone https://github.com/TheFadGhost/plugbot
 cd plugbot
 npm install
 npm run build
+npm link          # puts `plugbot` on your PATH
+```
+
+Inside this repo, every command below also works without linking as
+`npx tsx src/cli/main.ts <command>`. When plugbot is an installed dependency
+of your bot project (`npm install plugbot`), plugin files import normally:
+
+```ts
+import { definePlugin } from "plugbot";
 ```
 
 ## A complete minimal plugin
@@ -35,7 +44,7 @@ export default definePlugin({
 });
 ```
 
-Commands are invoked with the configured prefix (`!ping`) or a mention alias (`plugbot: ping`). Arguments are declared as schemas and coerced before your handler runs; help text is generated from those declarations and can never drift from reality.
+Commands are invoked with the configured prefix (`!ping`) or a mention alias (`plugbot: ping`). Arguments are positional in schema-declaration order and coerced before your handler runs - `duration` parses `90s`/`5m`/`2h` into milliseconds, `number` into numbers, `choices` matches exactly. Help text is generated from those declarations and can never drift from reality. All context member types (`Message`, `Capabilities`, `Logger`, ...) are exported from the package root.
 
 ## Run it
 
@@ -44,7 +53,7 @@ plugbot doctor                # validate config, list what would load
 plugbot dev                   # mock adapter + REPL + hot reload
 plugbot run --config prod.json
 plugbot new my-plugin         # scaffold a skeleton
-plugbot docs                  # markdown reference from declarations
+plugbot docs                  # markdown reference for commands in plugins.dir
 ```
 
 `plugbot dev` against the bundled examples looks like this (see `docs/terminal-session.txt` for the raw capture):
@@ -79,17 +88,18 @@ you> !mystats
 The test harness spins up the real bot on the mock adapter, feeds it messages, and hands you what came back:
 
 ```ts
+import { expect, it } from "vitest";
 import { TestBot } from "plugbot/testing";
 
-const bot = await TestBot.create({
-  pluginSources: { "echo.ts": sourceString },
+it("echoes", async () => {
+  const bot = await TestBot.create({ pluginSources: { "echo.ts": sourceString } });
+  const page = await bot.receive({ from: "alice", text: "!echo hello" });
+  expect(page.texts()[0]?.text).toBe("hello");
+  await bot.stop();
 });
-const page = await bot.receive({ from: "alice", text: "!echo hello" });
-expect(page.texts()[0]?.text).toBe("hello");
-await bot.stop();
 ```
 
-Scheduled jobs advance deterministically - `await bot.advanceMs(16_000)` fires timers in order instead of sleeping. Helpers cover reactions, edits, deletions, and thread-scoped sends. Adapter authors run the shared conformance suite:
+`TestBot` surface: `receive(input)` returns a `TranscriptPage` with `texts()`, `reactions()`, `edits()`, `deletions()`; `advanceMs(ms)` fires scheduled jobs and breaker timers deterministically instead of sleeping; plus `mock` (the raw adapter), `metrics()`, `registryCounts()`, `reloadPlugins()`, and `stop(options)`. Adapter authors run the shared conformance suite:
 
 ```ts
 import { describeAdapterConformance } from "plugbot/testing";
@@ -113,6 +123,8 @@ Every adapter implements one interface and declares its capabilities; unsupporte
 | userLookup | yes | yes | no |
 | channelLookup | yes | yes | yes |
 | roles | yes | yes | yes (channel ops) |
+
+The matrix matches DESIGN.md; the conformance suite asserts it, so a changed adapter updates one or fails tests.
 
 - **mock** - fully featured in-memory platform with `simulateMessage`, `simulateJoin`, and a queryable delivery log. The whole bot runs here.
 - **transcript** - replays a scripted conversation file deterministically and records outbound messages; same input, identical output, every time.
