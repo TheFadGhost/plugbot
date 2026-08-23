@@ -104,6 +104,8 @@ export interface PlugbotConfig {
   storage: StorageConfig;
   logging: LoggingConfig;
   limits: LimitsConfig;
+  /** Per-plugin configuration values, validated against each plugin's configSchema. */
+  pluginConfigs: Record<string, Record<string, unknown>>;
 }
 
 export const CONFIG_ENV_PREFIX = "PLUGBOT_";
@@ -126,4 +128,5 @@ export const DEFAULT_CONFIG: PlugbotConfig = {
     userCommandsPerMinute: 30,
     shutdownDrainMs: 10_000,
   },
+  pluginConfigs: {},
 };

@@ -4,6 +4,7 @@
  */
 
 import type { PlugbotConfig } from "../config/types.js";
+import type { Adapter } from "../adapter/adapter.js";
 import type { Clock } from "../clock.js";
 import type { Logger } from "../logging/types.js";
 import type { Middleware } from "../plugin/types.js";
@@ -40,8 +41,12 @@ export interface StartOptions {
   configPath?: string;
   logger?: Logger;
   clock?: Clock;
+  /** Pre-built adapter; constructed from config.adapter when omitted. */
+  adapterInstance?: Adapter;
   /** Extra host-side middleware appended after the built-in pipeline. */
   extraMiddleware?: Middleware[];
+  /** Watch the plugin directory and reload changed plugins (dev mode). */
+  hotReload?: boolean;
   onReady?: () => void;
 }
 

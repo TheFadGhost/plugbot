@@ -1,0 +1,9 @@
+# five-line determinism probe, replayed twice in tests
+
+alice -> #general: first message of the deterministic run
+bob -> #general: second message, mentioning @alice explicitly
+
+join carol #general
+
+carol -> @plugbot: third, a direct message to the bot
+leave carol #general

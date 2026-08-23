@@ -1,0 +1,21 @@
+# plugbot framework test conversation
+# lines starting with # are ignored; blank lines too
+
+join carol #general
+
+alice -> #general: morning all, the office coffee machine is finally fixed
+bob -> #general: nice, and the standup reminder fired on time for once
+
+carol -> #general: sorry im late, the reminder plugin flooded my calendar with tests
+alice -> #general: ha, that coffee machine has outlived three bot frameworks
+
+leave bob #general
+
+bob -> @plugbot: remind me to rerun the conformance suite after standup
+
+# random channel chatter below
+
+alice -> #random: lunch orders thread starts at noon
+carol -> #random: found a keyboard with programmable easter eggs
+bob -> #random: testing gif reactions after the demo
+alice -> @plugbot: tell me when the framework tests finish running
