@@ -5,6 +5,7 @@
  */
 
 import type { Message } from "../types.js";
+import type { Middleware } from "../plugin/types.js";
 import type { CircuitBreaker } from "./breaker.js";
 import type { PluginIsolation, PluginManifest } from "./manifest.js";
 
@@ -26,6 +27,8 @@ export interface PluginRuntime {
   readonly manifest: PluginManifest;
   readonly isolation: PluginIsolation;
   readonly breaker: CircuitBreaker;
+  /** Host-side middleware contributed by inline plugins; absent for sandboxed ones. */
+  readonly middleware?: readonly Middleware[];
   init(): Promise<void>;
   invokeCommand(
     path: string[],

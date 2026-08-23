@@ -238,6 +238,7 @@ port.on("message", (message: HostToWorker) => {
       break;
     }
     case "invoke": {
+      if (env !== null) env = { ...env, nowMs: message.nowMs };
       const controller = new AbortController();
       invocationSignals.set(message.id, controller);
       void runInvocation(message.id, message.invocation, controller);

@@ -52,6 +52,8 @@ export interface StartOptions {
 
 export interface RunningBot {
   readonly adapterName: string;
+  /** Top-level command paths currently registered, sorted; powers CLI completion. */
+  commandNames(): readonly string[];
   registryCounts(): RegistryCounts;
   metrics(): MetricsSnapshot;
   reloadPlugins(): Promise<void>;

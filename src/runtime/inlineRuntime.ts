@@ -157,9 +157,10 @@ export class InlinePluginRuntime implements PluginRuntime {
         command = command.subcommands?.[path[depth] ?? ""];
       }
       if (command === undefined) throw new Error(`unknown command "${path.join(".")}"`);
-      const resolved: CommandDef<ArgsSchema> = command;
+      if (command.run === undefined) throw new Error(`command "${path.join(".")}" has no run handler`);
+      const run = command.run;
       await this.#runGuarded("command", path.join("."), () =>
-        resolved.run(this.#commandContext(path, message, args, rawArgs)),
+        run(this.#commandContext(path, message, args, rawArgs)),
       );
     });
   }

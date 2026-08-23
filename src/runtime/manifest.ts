@@ -22,6 +22,8 @@ export interface CommandManifest {
   permission?: string;
   hidden?: boolean;
   args?: ArgsSchema;
+  /** False when the command is a bare group that only routes to subcommands. */
+  runnable: boolean;
 }
 
 export interface ListenerManifest {
@@ -73,7 +75,7 @@ function collectCommands(
 ): void {
   for (const [key, def] of Object.entries(commands)) {
     const path = [...prefix, key];
-    const entry: CommandManifest = { path, description: def.description };
+    const entry: CommandManifest = { path, description: def.description, runnable: typeof def.run === "function" };
     if (def.aliases !== undefined) entry.aliases = [...def.aliases];
     if (def.permission !== undefined) entry.permission = def.permission;
     if (def.hidden === true) entry.hidden = true;
@@ -138,7 +140,9 @@ function checkCommandDef(value: unknown, where: string, problems: string[]): voi
     problems.push(`${where} must be an object`);
     return;
   }
-  if (typeof value.run !== "function") problems.push(`${where}.run must be a function`);
+  if (value.run !== undefined && typeof value.run !== "function") {
+    problems.push(`${where}.run must be a function`);
+  }
   if (typeof value.description !== "string") problems.push(`${where}.description must be a string`);
   if (value.aliases !== undefined && !Array.isArray(value.aliases)) {
     problems.push(`${where}.aliases must be an array`);

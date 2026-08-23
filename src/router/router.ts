@@ -149,7 +149,7 @@ export function createRouter(deps: RouterDeps, handlers: RouterHandlers): Router
     const shown = path.join(" ");
     const entry = node.entry;
 
-    if (entry === undefined) {
+    if (entry === undefined || entry.runnable === false) {
       if (remaining.length > 0) {
         await deps.replyTo(
           message,

@@ -8,6 +8,8 @@ export interface CatalogCommand {
   args?: ArgsSchema;
   permission?: string;
   hidden?: boolean;
+  /** False marks a bare group that only routes to subcommands. */
+  runnable?: boolean;
 }
 
 export interface CommandCatalog {

@@ -42,7 +42,7 @@ export type InvokePayload =
 
 export type HostToWorker =
   | { type: "init"; id: number; env: WorkerInitEnv }
-  | { type: "invoke"; id: number; invocation: InvokePayload }
+  | { type: "invoke"; id: number; invocation: InvokePayload; nowMs: number }
   | { type: "abort"; invocationId: number }
   | { type: "shutdown"; id: number; graceMs: number }
   | { type: "callResult"; nid: number; ok: true; payload?: unknown }
@@ -302,7 +302,7 @@ export class ThreadPluginRuntime implements PluginRuntime {
         reject(new HandlerTimeoutError(this.name, label.kind, label.name, this.#limits.handlerTimeoutMs));
       }, this.#limits.handlerTimeoutMs);
       try {
-        worker.postMessage({ type: "invoke", id, invocation } satisfies HostToWorker);
+        worker.postMessage({ type: "invoke", id, invocation, nowMs: this.#clock.now() } satisfies HostToWorker);
       } catch (cause: unknown) {
         settle(
           (c) => reject(new HandlerError(this.name, label.kind, label.name, c)),

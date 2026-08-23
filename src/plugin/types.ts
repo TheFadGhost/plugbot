@@ -129,7 +129,8 @@ export interface CommandDef<S extends ArgsSchema = ArgsSchema> {
   readonly permission?: string;
   readonly hidden?: boolean;
   readonly subcommands?: Readonly<Record<string, CommandDef<ArgsSchema>>>;
-  run(ctx: CommandContext<ParsedArgs<S>>): void | Promise<void>;
+  /** Omit on pure group commands that only route to subcommands. */
+  run?(ctx: CommandContext<ParsedArgs<S>>): void | Promise<void>;
 }
 
 export interface ListenerDef {

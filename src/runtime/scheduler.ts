@@ -103,10 +103,14 @@ export class Scheduler {
     if (!this.#stopped) this.#arm(key, { plugin: entry.plugin, manifest: entry.manifest }, entry.fire);
   }
 
-  stopAll(): void {
-    this.#stopped = true;
+  reset(): void {
     for (const entry of this.#armed.values()) entry.timer.cancel();
     this.#armed.clear();
+  }
+
+  stopAll(): void {
+    this.#stopped = true;
+    this.reset();
   }
 
   pendingCount(): number {

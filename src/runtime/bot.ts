@@ -21,7 +21,7 @@ import { createMetricsRecorder } from "../middleware/metricsState.js";
 import type { MetricsRecorder } from "../middleware/metricsState.js";
 import { composePipeline } from "../middleware/pipeline.js";
 import { rejectionChatReply } from "../middleware/rejectionReplies.js";
-import type { OutboundApi } from "../plugin/types.js";
+import type { Middleware, NextFn, OutboundApi } from "../plugin/types.js";
 import type { RoleResolver } from "../permissions/types.js";
 import { catalogFromEntries } from "../router/catalog.js";
 import { createRouter } from "../router/router.js";
@@ -153,10 +153,7 @@ export async function startBot(options: StartOptions): Promise<RunningBot> {
     try {
       await track(invoke());
     } catch (cause) {
-      if (cause instanceof CircuitOpenError) {
-        coreLog.debug("circuit open - invocation skipped", { plugin: pluginName });
-        return;
-      }
+      if (cause instanceof CircuitOpenError) throw cause;
       recordPluginFailure(pluginName, cause);
       throw cause;
     }
@@ -190,6 +187,7 @@ export async function startBot(options: StartOptions): Promise<RunningBot> {
         args: command.args,
         permission: command.permission,
         hidden: command.hidden,
+        runnable: command.runnable,
       })),
     ),
   );
@@ -264,27 +262,42 @@ export async function startBot(options: StartOptions): Promise<RunningBot> {
     }
   }
 
-  const chainedMessage = composePipeline([
-    loggingMiddleware(logger.child("pipeline"), clock),
-    metricsMiddleware(recorder),
-    rateLimitMiddleware({ perMinute: config.limits.userCommandsPerMinute, clock }),
-    ...(options.extraMiddleware ?? []),
-  ]);
+  function pluginMiddleware(): Middleware[] {
+    const collected: Middleware[] = [];
+    for (const runtime of loaded.registry.all()) {
+      if (runtime.middleware !== undefined) collected.push(...runtime.middleware);
+    }
+    return collected;
+  }
+
+  let pipelineChain = buildPipelineChain();
+  function buildPipelineChain(): (message: Message, terminal: NextFn) => Promise<void> {
+    return composePipeline([
+      loggingMiddleware(logger.child("pipeline"), clock),
+      metricsMiddleware(recorder),
+      rateLimitMiddleware({ perMinute: config.limits.userCommandsPerMinute, clock }),
+      ...pluginMiddleware(),
+      ...(options.extraMiddleware ?? []),
+    ]);
+  }
+
+  function rebuildPipeline(): void {
+    pipelineChain = buildPipelineChain();
+  }
 
   async function processMessageEvent(message: Message): Promise<void> {
     try {
       await track(
-        chainedMessage(message, async () => {
+        pipelineChain(message, async () => {
           const result = await router.handleMessage(message);
           if (result.status === "handled") recorder.recordCommand("ok");
           await fanoutListeners(message);
         }),
       );
     } catch (cause) {
-      recorder.recordCommand("failed");
       const chatReply = rejectionChatReply(cause);
       if (chatReply !== null) {
-        coreLog.debug("message rejected by pipeline", {
+        coreLog.debug("message rejected", {
           reason: cause instanceof Error ? cause.message : String(cause),
         });
         safeReply(message, chatReply);
@@ -328,7 +341,7 @@ export async function startBot(options: StartOptions): Promise<RunningBot> {
   }
 
   function scheduleAllJobs(): void {
-    scheduler.stopAll();
+    scheduler.reset();
     for (const runtime of loaded.registry.all()) {
       for (const job of runtime.manifest.jobs) {
         scheduler.schedule({ plugin: runtime.name, manifest: job }, (scheduledFor) =>
@@ -336,6 +349,7 @@ export async function startBot(options: StartOptions): Promise<RunningBot> {
         );
       }
     }
+    rebuildPipeline();
   }
 
   const scheduler = new Scheduler(clock, (plugin, job, fields) => {
@@ -373,6 +387,13 @@ export async function startBot(options: StartOptions): Promise<RunningBot> {
 
   const runningBot: RunningBot = {
     adapterName: adapter.name,
+    commandNames(): readonly string[] {
+      return catalog
+        .commands()
+        .filter((entry) => entry.hidden !== true)
+        .map((entry) => entry.path.join(" "))
+        .sort();
+    },
     registryCounts(): RegistryCounts {
       return loaded.registry.counts();
     },
@@ -395,10 +416,10 @@ export async function startBot(options: StartOptions): Promise<RunningBot> {
       scheduler.stopAll();
       contextSignal.abort();
 
-      const drainBudget =
-        stopOptions?.drainMs ?? config.limits.shutdownDrainMs;
-      const deadline = clock.now() + drainBudget;
-      while (pending.size > 0 && clock.now() < deadline) {
+      const drainBudget = stopOptions?.drainMs ?? config.limits.shutdownDrainMs;
+      const virtualDeadline = clock.now() + drainBudget;
+      const realDeadline = Date.now() + drainBudget;
+      while (pending.size > 0 && clock.now() < virtualDeadline && Date.now() < realDeadline) {
         await new Promise((resolveTick) => setTimeout(resolveTick, 20));
       }
 
