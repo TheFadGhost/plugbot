@@ -61,12 +61,6 @@ export function rateLimitMiddleware(options: RateLimitOptions): Middleware {
 export function metricsMiddleware(recorder: MetricsRecorder): Middleware {
   return async (_message, next) => {
     recorder.recordMessage();
-    try {
-      await next();
-      recorder.recordCommand("ok");
-    } catch (error: unknown) {
-      recorder.recordCommand("failed");
-      throw error;
-    }
+    await next();
   };
 }

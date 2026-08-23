@@ -235,8 +235,11 @@ export async function loadPlugins(options: LoadPluginsOptions): Promise<LoadedPl
   const shutdownAndDispose = async (runtime: PluginRuntime, graceMs: number): Promise<void> => {
     try {
       await runtime.shutdown(graceMs);
-    } catch {
-      // containment boundary; disposal proceeds regardless
+    } catch (cause) {
+      loaderLogger.debug("shutdown failed during dispose", {
+        plugin: runtime.name,
+        error: cause instanceof Error ? cause.message : String(cause),
+      });
     }
     await runtime.dispose().catch(() => {});
   };
@@ -254,6 +257,17 @@ export async function loadPlugins(options: LoadPluginsOptions): Promise<LoadedPl
 
     async reloadFile(filePath: string): Promise<"reloaded" | "removed" | "unchanged"> {
       const abs = resolve(filePath);
+      if (disabled.includes(stemOf(abs))) {
+        const existingDisabled = runtimesByFile.get(abs);
+        if (existingDisabled !== undefined) {
+          registry.unregister(existingDisabled.name);
+          runtimesByFile.delete(abs);
+          loadedContentByFile.delete(abs);
+          await shutdownAndDispose(existingDisabled, 2000);
+          return "removed";
+        }
+        return "unchanged";
+      }
       const existing = runtimesByFile.get(abs);
       if (!existsSync(abs)) {
         if (existing === undefined) return "removed";
@@ -271,7 +285,14 @@ export async function loadPlugins(options: LoadPluginsOptions): Promise<LoadedPl
         runtimesByFile.delete(abs);
         await shutdownAndDispose(existing, 2000);
       }
-      adopt(fresh);
+      try {
+        adopt(fresh);
+      } catch (cause) {
+        await fresh.dispose().catch(() => {});
+        const reason = cause instanceof PluginLoadError ? cause.message : cause instanceof Error ? cause.message : String(cause);
+        loaderLogger.error("plugin skipped", { pluginFile: abs, reason });
+        return "removed";
+      }
       runtimesByFile.set(abs, fresh);
       loadedContentByFile.set(abs, content);
       return "reloaded";

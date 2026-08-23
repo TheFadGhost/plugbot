@@ -47,7 +47,7 @@ import type {
 const FILE_PATTERN = /\.(ts|js)$/i;
 const EXCLUDED_PATTERN = /(\.test\.|\.d\.(ts|js)$)/i;
 
-function scanPluginFilePaths(dir: string): string[] {
+function scanPluginFilePaths(dir: string, onError?: (reason: string) => void): string[] {
   try {
     return readdirSync(dir, { withFileTypes: true })
       .filter((entry) => entry.isFile())
@@ -56,7 +56,8 @@ function scanPluginFilePaths(dir: string): string[] {
       .filter((entry) => !entry.name.startsWith("_"))
       .map((entry) => join(dir, entry.name))
       .sort();
-  } catch {
+  } catch (cause) {
+    onError?.(cause instanceof Error ? cause.message : String(cause));
     return [];
   }
 }
@@ -65,7 +66,11 @@ export function createConfiguredAdapter(config: PlugbotConfig, clock: Clock): Ad
   const options = config.adapter.options as Record<string, unknown>;
   switch (config.adapter.type) {
     case "mock":
-      return new MockAdapter({ ...(options as MockAdapterOptions), clock });
+      return new MockAdapter({
+        ...(options as MockAdapterOptions),
+        botUsername: (options as MockAdapterOptions).botUsername ?? config.bot.username,
+        clock,
+      });
     case "transcript":
       return new TranscriptAdapter({ ...(options as unknown as TranscriptAdapterOptions), clock });
     case "irc":
@@ -142,6 +147,15 @@ export async function startBot(options: StartOptions): Promise<RunningBot> {
     const detail = cause instanceof Error ? { error: cause.message } : { error: String(cause) };
     if (cause instanceof HandlerError || cause instanceof HandlerTimeoutError) {
       coreLog.warn("plugin handler failed", { plugin: pluginName, ...cause.fields, ...detail });
+      const causeStack = cause.cause instanceof Error ? cause.cause.stack : undefined;
+      if (causeStack !== undefined && cause instanceof HandlerError) {
+        coreLog.debug("handler failure stack", {
+          plugin: pluginName,
+          handlerKind: cause.fields.handlerKind,
+          handler: cause.fields.handler,
+          stack: causeStack,
+        });
+      }
       return;
     }
     coreLog.warn("plugin invocation failed", { plugin: pluginName, ...detail });
@@ -211,6 +225,7 @@ export async function startBot(options: StartOptions): Promise<RunningBot> {
         prefix: config.commands.prefix,
         mentionAliases: config.commands.mentionAliases,
       },
+      logger: coreLog,
     },
     {
       runCommand: async ({ plugin, path, message, args, rawArgs }) => {
@@ -289,9 +304,25 @@ export async function startBot(options: StartOptions): Promise<RunningBot> {
     try {
       await track(
         pipelineChain(message, async () => {
-          const result = await router.handleMessage(message);
-          if (result.status === "handled") recorder.recordCommand("ok");
-          await fanoutListeners(message);
+          try {
+            const result = await router.handleMessage(message);
+            if (result.status === "handled") {
+              recorder.recordCommand("ok");
+              await fanoutListeners(message);
+              return;
+            }
+            if (
+              result.status === "unknown-command" ||
+              result.status === "invalid-args" ||
+              result.status === "denied"
+            ) {
+              recorder.recordCommand("failed");
+            }
+            await fanoutListeners(message);
+          } catch (cause) {
+            recorder.recordCommand("failed");
+            throw cause;
+          }
         }),
       );
     } catch (cause) {
@@ -376,12 +407,18 @@ export async function startBot(options: StartOptions): Promise<RunningBot> {
             error: cause instanceof Error ? cause.message : String(cause),
           });
         });
-    }, clock);
+    },
+    clock,
+    (reason) => {
+      coreLog.warn("plugin hot reload watcher unavailable", { error: reason });
+    },
+  );
   }
 
   coreLog.info("bot ready", {
     adapter: adapter.name,
     plugins: loaded.registry.all().length,
+    config: options.configPath ?? "defaults",
   });
   options.onReady?.();
 
@@ -401,7 +438,9 @@ export async function startBot(options: StartOptions): Promise<RunningBot> {
       return recorder.snapshot();
     },
     async reloadPlugins(): Promise<void> {
-      for (const filePath of scanPluginFilePaths(resolve(config.plugins.dir))) {
+      for (const filePath of scanPluginFilePaths(resolve(config.plugins.dir), (reason) =>
+        coreLog.warn("plugin dir unreadable during reload", { error: reason }),
+      )) {
         const status = await loaded.reloadFile(filePath);
         if (status !== "unchanged") {
           coreLog.info("plugin reloaded", { file: filePath, status });

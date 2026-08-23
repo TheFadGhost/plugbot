@@ -38,7 +38,7 @@ export function createDefaultLogger(options: DefaultLoggerOptions = {}): Logger 
     info: (msg, fields) => emit("info", name, msg, fields ?? {}),
     warn: (msg, fields) => emit("warn", name, msg, fields ?? {}),
     error: (msg, fields) => emit("error", name, msg, fields ?? {}),
-    child: (childName) => build(`${name}:${childName}`),
+    child: (childName) => build(`${name}.${childName}`),
   });
   return build("core");
 }

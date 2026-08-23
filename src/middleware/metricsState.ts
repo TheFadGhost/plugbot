@@ -27,6 +27,10 @@ export function createMetricsRecorder(clock: Clock): MetricsRecorder {
 
     recordHandlerFailure(plugin: string): void {
       handlerFailuresByPlugin.set(plugin, (handlerFailuresByPlugin.get(plugin) ?? 0) + 1);
+      if (handlerFailuresByPlugin.size > 100) {
+        const oldest = handlerFailuresByPlugin.keys().next();
+        if (oldest.done !== true && oldest.value !== plugin) handlerFailuresByPlugin.delete(oldest.value);
+      }
     },
 
     snapshot(): MetricsSnapshot {

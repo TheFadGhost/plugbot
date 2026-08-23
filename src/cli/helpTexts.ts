@@ -30,9 +30,9 @@ Usage:
 
 Arguments:
   <name>           Plugin name: lowercase letters, digits, hyphen; starts with a letter.
-  --dir <dir>      Directory that receives the file (default: plugins).
 
 Options:
+  --dir <dir>      Directory that receives the file (default: plugins).
   -h, --help       Show this help.
 
 Examples:
@@ -67,10 +67,11 @@ Usage:
   plugbot dev [--config <path>] [--dir <directory>]
 
 Arguments:
-  --config <path>    Configuration file (default: ./config.json).
-  --dir <dir>        Plugin directory to watch and load (overrides plugins.dir).
+  None.
 
 Options:
+  --config <path>    Configuration file (default: ./config.json).
+  --dir <dir>        Plugin directory to watch and load (overrides plugins.dir).
   --no-color         Disable coloured output.
   --log-json         Emit logs as JSON lines.
   -h, --help         Show this help.
@@ -86,25 +87,27 @@ Usage:
   plugbot doctor [--config <path>]
 
 Arguments:
-  --config <path>    Configuration file (default: ./config.json).
+  None.
 
 Options:
+  --config <path>    Configuration file (default: ./config.json).
   -h, --help         Show this help.
 
 Examples:
   plugbot doctor
   plugbot doctor --config config/prod.json
 `,
-  docs: `Write a markdown reference for declared commands.
+  docs: `Write a markdown reference for declared commands in plugins.dir.
 
 Usage:
   plugbot docs [--out <file>] [--config <path>]
 
 Arguments:
-  --out <file>       File that receives the markdown (default: print to stdout).
-  --config <path>    Configuration file (default: ./config.json).
+  None.
 
 Options:
+  --out <file>       File that receives the markdown (default: print to stdout).
+  --config <path>    Configuration file (default: ./config.json).
   -h, --help         Show this help.
 
 Examples:

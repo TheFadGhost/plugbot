@@ -29,6 +29,7 @@ export function watchPluginsDir(
   dir: string,
   onChange: (filePath: string) => void,
   clock: Clock = systemClock(),
+  onError?: (reason: string) => void,
 ): DirWatcher {
   const pending = new Map<string, ClockTimeout>();
   let closed = false;
@@ -47,9 +48,13 @@ export function watchPluginsDir(
         }, DEBOUNCE_MS),
       );
     });
-  } catch {
+  } catch (cause) {
+    onError?.(cause instanceof Error ? cause.message : String(cause));
     return { close: () => {} };
   }
+  watcher.on("error", (cause) => {
+    onError?.(cause instanceof Error ? cause.message : String(cause));
+  });
   return {
     close(): void {
       closed = true;

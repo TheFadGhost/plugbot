@@ -1,8 +1,10 @@
 import { PermissionDeniedError } from "../errors.js";
 import type { Authorizer } from "../permissions/types.js";
+import type { Logger } from "../logging/types.js";
 import type { Message } from "../types.js";
 import { parseArguments } from "./argsParser.js";
-import type { CatalogCommand, CommandCatalog } from "./catalog.js";
+import { buildCommandTrie } from "./catalog.js";
+import type { CatalogCommand, CommandCatalog, CommandTrieNode } from "./catalog.js";
 import { HELP_COMMAND, buildHelpDetail, buildHelpOverview } from "./helpBuilder.js";
 import { tokenizeCommandLine } from "./tokenizer.js";
 import { argumentDocs, usageLine } from "./usage.js";
@@ -25,6 +27,7 @@ export interface RouterDeps {
   replyTo(message: Message, text: string): Promise<unknown>;
   authorizer: Authorizer;
   invocation: RouterInvocation;
+  logger?: Logger;
 }
 
 export interface CommandInput {
@@ -43,44 +46,10 @@ export interface Router {
   handleMessage(message: Message): Promise<DispatchResult>;
 }
 
-interface RouteNode {
-  entry?: CatalogCommand;
-  readonly children: Map<string, RouteNode>;
-}
-
-function routeChild(parent: RouteNode, name: string): RouteNode {
-  let child = parent.children.get(name);
-  if (child === undefined) {
-    child = { children: new Map() };
-    parent.children.set(name, child);
-  }
-  return child;
-}
+type RouteNode = CommandTrieNode;
 
 export function buildRouteTrie(entries: readonly CatalogCommand[]): RouteNode {
-  const root: RouteNode = { children: new Map() };
-  for (const entry of entries) {
-    if (entry.path.length === 0) continue;
-    let node = root;
-    for (const segment of entry.path) node = routeChild(node, segment);
-    if (node.entry === undefined) node.entry = entry;
-  }
-  for (const entry of entries) {
-    const aliases = entry.aliases;
-    if (aliases === undefined || aliases.length === 0 || entry.path.length === 0) continue;
-    let parent: RouteNode | undefined = root;
-    for (const segment of entry.path.slice(0, -1)) {
-      parent = parent.children.get(segment);
-      if (parent === undefined) break;
-    }
-    if (parent === undefined) continue;
-    const leaf = parent.children.get(entry.path[entry.path.length - 1]!);
-    if (leaf === undefined) continue;
-    for (const alias of aliases) {
-      if (!parent.children.has(alias)) parent.children.set(alias, leaf);
-    }
-  }
-  return root;
+  return buildCommandTrie(entries);
 }
 
 export function createRouter(deps: RouterDeps, handlers: RouterHandlers): Router {
@@ -166,6 +135,11 @@ export function createRouter(deps: RouterDeps, handlers: RouterHandlers): Router
         await deps.authorizer.assertAllowed(message.author, entry.permission);
       } catch (error: unknown) {
         if (error instanceof PermissionDeniedError) {
+          deps.logger?.info("permission denied", {
+            user: message.author.username,
+            userId: message.author.id,
+            commandPath: entry.path.join(" "),
+          });
           await deps.replyTo(message, "you don't have permission to run that command");
           return { status: "denied", commandPath: entry.path, plugin: entry.plugin };
         }

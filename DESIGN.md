@@ -191,7 +191,9 @@ Applied to every module, without exception.
   `camelCase`. True constants: `SCREAMING_SNAKE_CASE`. File names: `camelCase`,
   named after their primary export.
 - Methods are verb-first: `send`, `editMessage`, `deleteMessage`, `react`,
-  `startTyping`, `getUser`, `getChannel`, `resolveRoles`.
+  `startTyping`, `getUser`, `getChannel`, `resolveRoles`. Read accessors that
+  expose already-computed state may be noun-named (`deliveries()`,
+  `pendingCount()`, `metrics()`); anything with behaviour or cost is a verb.
 - Events are lowerCamelCase occurrences: `message`, `memberJoin`,
   `memberLeave`. Event handler properties share the event name exactly.
 - Banned as identifiers anywhere in the codebase: `data`, `info` (except the
@@ -252,8 +254,9 @@ Format: `HH:MM:SS LEVEL NAME MESSAGE key=value ...`. LEVEL is upper-case padded
 to five characters. NAME is left-aligned padded to twelve. Values containing
 spaces are double-quoted.
 
-Colour roles - the only places colour ever appears: the level word, the logger
-name, and nothing else. Timestamps and field keys render dim in both themes.
+Colour roles - the only places colour ever appears: the level word and the
+logger name, nothing else. Timestamps and field keys render plain in both
+themes.
 
 ### Machine mode
 
@@ -290,6 +293,9 @@ Token table (semantic token -> dark / light):
 | `fgName` (logger names) | bright-blue (94) | magenta (35) |
 | `fgPrompt` (REPL prompt) | bright-cyan (96) | blue (34) |
 | `fgRef` (channel/user references) | bright-black (90) | bright-black (90) |
+
+`fgMuted` is reserved for future use by output tools built on the token table;
+the framework's own log lines never use it.
 
 Approximate backgrounds used for contrast verification: dark `#1e1e1e`,
 light `#fafafa`. All tokens verify at WCAG AA (>= 4.5:1) against their theme's
@@ -331,22 +337,28 @@ Exit codes: `0` success; `1` runtime failure; `2` configuration error.
 
 ## 6. Validation error anatomy
 
-Startup collects every violation and reports all of them, worst first, then
-exits 2. One violation renders as:
+Startup collects every violation and reports all of them, unknown keys first,
+then type errors, then missing keys, then exits 2. Violations render as:
 
 ```
+config error: pluginsz.dir: unknown key
+  at config.json  key "pluginsz.dir"
+  did you mean "plugins.dir"?
 config error: adapter.type: expected one of "mock", "transcript", "irc", got "slack"
-  at config.json:3  key "adapter.type"
+  at config.json  key "adapter.type"
+config error: storage.file: missing required key, but it is absent
+  at config.json  key "storage.file"
 ```
 
 Rules:
 
-- First line: `config error: <dotted.key>: <expectation>, got <actual>`.
-- Second line: source file and key path, always present.
-- Unknown keys suggest the nearest known key when edit distance is <= 2:
-  `unknown key "pluginz.dir" - did you mean "plugins.dir"?`
-- Missing required keys: `missing required key "storage.file"`.
-- Environment overrides report as `env PLUGBOT_ADAPTER__TYPE` in the same shape.
+- First line per violation: `config error: <dotted.key>: <expectation>` plus
+  `, got <actual>` for type mismatches; `but it is absent` for null-wiped or
+  missing required keys.
+- Second line: source file (or `env PLUGBOT_...` when the violation came from
+  an environment override) and the key path, always present.
+- Unknown keys suggest the nearest known key when edit distance is <= 2 on a
+  third line.
 - Nothing else prints. No banner, no tips, no stack trace for config errors -
   a config error is data, not a crash.
 

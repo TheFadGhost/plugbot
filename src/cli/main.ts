@@ -79,7 +79,7 @@ function packageVersion(): string {
   return pkg.version ?? "0.0.0";
 }
 
-function scanPluginFileNames(dir: string): string[] {
+function scanPluginFileNames(dir: string, onError?: (reason: string) => void): string[] {
   try {
     return readdirSync(dir, { withFileTypes: true })
       .filter((entry) => entry.isFile())
@@ -88,7 +88,8 @@ function scanPluginFileNames(dir: string): string[] {
       .filter((entry) => !entry.name.startsWith("_"))
       .map((entry) => entry.name)
       .sort();
-  } catch {
+  } catch (cause) {
+    onError?.(cause instanceof Error ? cause.message : String(cause));
     return [];
   }
 }
@@ -102,8 +103,9 @@ async function loadConfigOrReport(
   env: Record<string, string | undefined>,
   stderr: NodeJS.WritableStream,
 ): Promise<LoadedConfig | null> {
+  const chosenFile = file ?? env.PLUGBOT_CONFIG;
   try {
-    return await loadConfig({ file, env });
+    return await loadConfig({ file: chosenFile, env });
   } catch (cause) {
     if (cause instanceof ConfigError) {
       stderr.write(`${configErrorText(cause)}\n`);
@@ -181,7 +183,9 @@ async function doctorCommand(
   const loaded = await loadConfigOrReport(file, env, streams.stderr);
   if (loaded === null) return 2;
   const absDir = resolve(loaded.config.plugins.dir);
-  const files = scanPluginFileNames(absDir);
+  const files = scanPluginFileNames(absDir, (reason) => {
+    streams.stderr.write(`warning: cannot read plugins dir: ${reason}\n`);
+  });
   const lines = [
     `config ok (${loaded.loadedFromFile ?? "defaults"})`,
     `adapter: ${loaded.config.adapter.type}`,

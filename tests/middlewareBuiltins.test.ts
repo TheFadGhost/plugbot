@@ -183,21 +183,22 @@ describe("rateLimitMiddleware", () => {
 });
 
 describe("metricsMiddleware", () => {
-  it("counts messages and successful commands", async () => {
+  it("counts messages; command outcomes are recorded by the dispatch layer, not middleware", async () => {
     const clock = new ManualClock();
     const recorder = createMetricsRecorder(clock);
     await executePipeline([metricsMiddleware(recorder)], makeMessage(makeUser("u")), async () => {
       recorder.recordHandlerFailure("poll");
+      recorder.recordCommand("ok");
     });
     await executePipeline([metricsMiddleware(recorder)], makeMessage(makeUser("u")), terminalNoop);
     expect(recorder.snapshot()).toMatchObject({
       messagesSeen: 2,
-      commandsInvoked: 2,
+      commandsInvoked: 1,
       commandsFailed: 0,
     });
   });
 
-  it("records failed outcome on rejection, still counts, and preserves the original error", async () => {
+  it("counts the message on rejection and preserves the original error", async () => {
     const clock = new ManualClock();
     const recorder = createMetricsRecorder(clock);
     const boom = new Error("handler-boom");
@@ -209,8 +210,7 @@ describe("metricsMiddleware", () => {
     ).rejects.toBe(boom);
     const snap = recorder.snapshot();
     expect(snap.messagesSeen).toBe(1);
-    expect(snap.commandsInvoked).toBe(1);
-    expect(snap.commandsFailed).toBe(1);
+    expect(snap.commandsInvoked).toBe(0);
     expect(snap.handlerFailuresByPlugin).toEqual({ dice: 1 });
   });
 

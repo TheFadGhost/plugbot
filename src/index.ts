@@ -51,7 +51,6 @@ export type {
   Role,
   SendOptions,
   SentMessageRef,
-  SentMessageRef as SentMessage,
   User,
 } from "./types.js";
 export { EVENT_TYPES } from "./types.js";
@@ -61,11 +60,9 @@ export type { Clock, ClockTimeout } from "./clock.js";
 export type { LogFields, LogLevel, Logger, LogRecord, LogSink } from "./logging/types.js";
 
 export {
-  ArgumentValidationError,
   AdapterOperationError,
   CapabilityError,
   CircuitOpenError,
-  CommandUnknownError,
   ConfigError,
   type ConfigViolation,
   HandlerError,

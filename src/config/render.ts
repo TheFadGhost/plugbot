@@ -47,6 +47,10 @@ function compareViolations(a: ConfigViolation, b: ConfigViolation): number {
   return 0;
 }
 
+function sourceLabel(source: string): string {
+  return source.startsWith("PLUGBOT_") ? `env ${source}` : source;
+}
+
 export function renderViolations(violations: readonly ConfigViolation[]): string[] {
   const lines: string[] = [];
   const sorted = [...violations].sort(compareViolations);
@@ -58,7 +62,7 @@ export function renderViolations(violations: readonly ConfigViolation[]): string
     } else {
       lines.push(`config error: ${violation.key}: ${violation.expectation}, got ${violation.actual}`);
     }
-    lines.push(`  at ${violation.source}  key "${violation.key}"`);
+    lines.push(`  at ${sourceLabel(violation.source)}  key "${violation.key}"`);
     if (violation.expectation === UNKNOWN_KEY && violation.actual !== "") {
       lines.push(`  did you mean "${violation.actual}"?`);
     }

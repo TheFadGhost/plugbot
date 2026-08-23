@@ -70,6 +70,8 @@ export interface AdapterConfig {
 /** Typed option shapes per adapter; adapters validate their own options at start. */
 export interface MockAdapterOptions {
   botUserId?: string;
+  /** Bot display name; defaults to config bot.username. */
+  botUsername?: string;
   channels?: Array<{ id: string; name?: string }>;
   users?: Array<{ id: string; username: string; displayName?: string }>;
   roles?: Record<string, string[]>;

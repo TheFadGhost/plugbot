@@ -112,10 +112,14 @@ export class JsonStorageEngine implements StorageEngine {
 
   async loadFromDisk(): Promise<void> {
     let rawMain: string | null = null;
+    let mainAbsent = false;
+    let mainReadError: string | null = null;
     try {
       rawMain = await readFile(this.#file, "utf8");
-    } catch {
+    } catch (cause) {
       rawMain = null;
+      if ((cause as Partial<NodeJS.ErrnoException> | undefined)?.code === "ENOENT") mainAbsent = true;
+      else mainReadError = cause instanceof Error ? cause.message : String(cause);
     }
     if (rawMain !== null) {
       const doc = JsonStorageEngine.parseDocument(rawMain);
@@ -139,7 +143,15 @@ export class JsonStorageEngine implements StorageEngine {
         return;
       }
     }
+    if (mainReadError !== null) {
+      this.#logger.error(`storage unreadable - starting empty`, { file: this.#file, error: mainReadError });
+      return;
+    }
     if (rawMain === null && rawBackup === null) {
+      if (!mainAbsent) {
+        this.#logger.error(`storage unreadable - starting empty`, { file: this.#file });
+        return;
+      }
       this.#logger.debug("storage file absent - starting empty", { file: this.#file });
       return;
     }

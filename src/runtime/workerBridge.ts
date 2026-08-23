@@ -101,7 +101,8 @@ function reviveError(serialized: SerializedError): Error {
   return revived;
 }
 
-const WORKER_ENTRY_URL = new URL("./workerEntry.ts", import.meta.url);
+const WORKER_ENTRY_FILE = import.meta.filename.endsWith(".ts") ? "workerEntry.ts" : "workerEntry.js";
+const WORKER_ENTRY_URL = new URL(`./${WORKER_ENTRY_FILE}`, import.meta.url);
 
 export class ThreadPluginRuntime implements PluginRuntime {
   readonly isolation = "thread" as const;
@@ -131,8 +132,6 @@ export class ThreadPluginRuntime implements PluginRuntime {
   #pending = new Map<number, PendingEntry>();
   #bootstrapping: Promise<void> | null = null;
   #readyByWorker = new Map<Worker, { resolve: (manifest: PluginManifest) => void; reject: (cause: unknown) => void }>();
-  #nestedSeq = 0;
-  #nestedCalls = new Map<number, { resolve: (payload: unknown) => void; reject: (cause: unknown) => void }>();
   #typingSeq = 0;
   #typingHandles = new Map<string, TypingHandle>();
   #cachedLoggerName: string | null = null;
@@ -267,8 +266,17 @@ export class ThreadPluginRuntime implements PluginRuntime {
     const worker = this.#worker;
     this.#alive = false;
     this.#worker = null;
+    await this.#stopAllTyping();
     this.#failAllPending("runtime disposed");
     if (worker !== null) await worker.terminate();
+  }
+
+  async #stopAllTyping(): Promise<void> {
+    const handles = [...this.#typingHandles.values()];
+    this.#typingHandles.clear();
+    for (const handle of handles) {
+      await handle.stop().catch(() => {});
+    }
   }
 
   async #guardedInvoke(label: InvocationLabel, invocation: InvokePayload): Promise<void> {
@@ -323,6 +331,7 @@ export class ThreadPluginRuntime implements PluginRuntime {
     const entry = this.#pending.get(id);
     if (entry === undefined) return;
     this.#pending.delete(id);
+    void this.#stopAllTyping();
     const worker = this.#worker;
     if (worker !== null) {
       try {
@@ -420,6 +429,7 @@ export class ThreadPluginRuntime implements PluginRuntime {
       this.#readyByWorker.delete(worker);
       readiness.reject(new PluginLoadError(this.#pluginFile, reason));
     }
+    void this.#stopAllTyping();
     if (this.#disposed) return;
     if (this.#worker === worker) {
       this.#worker = null;

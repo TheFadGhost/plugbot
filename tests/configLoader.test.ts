@@ -97,7 +97,7 @@ describe("loadConfig", () => {
     });
     expect(err.fields["source"]).toBe("env");
     expect(err.message).toContain('limits.handlerTimeoutMs: expected a number, got "abc"');
-    expect(err.message).toContain('at PLUGBOT_LIMITS__HANDLERTIMEOUTMS  key "limits.handlerTimeoutMs"');
+    expect(err.message).toContain('at env PLUGBOT_LIMITS__HANDLERTIMEOUTMS  key "limits.handlerTimeoutMs"');
   });
 
   it("parses PLUGBOT_ADAPTER__OPTIONS as JSON into adapter.options", async () => {
@@ -114,7 +114,7 @@ describe("loadConfig", () => {
       readFile: missingFileReader,
     });
     expect(err.message).toContain("adapter.options: valid JSON object, got \"{oops\"");
-    expect(err.message).toContain('at PLUGBOT_ADAPTER__OPTIONS  key "adapter.options"');
+    expect(err.message).toContain('at env PLUGBOT_ADAPTER__OPTIONS  key "adapter.options"');
   });
 
   it("suggests known keys for typoed env vars", async () => {
@@ -122,7 +122,7 @@ describe("loadConfig", () => {
       env: { PLUGBOT_PLUGINZ__DIR: "bots" },
       readFile: missingFileReader,
     });
-    expect(err.message).toContain('at PLUGBOT_PLUGINZ__DIR  key "pluginz.dir"');
+    expect(err.message).toContain('at env PLUGBOT_PLUGINZ__DIR  key "pluginz.dir"');
     expect(err.message).toContain('did you mean "plugins.dir"?');
   });
 
@@ -191,7 +191,7 @@ describe("renderViolations", () => {
       '  at config.json  key "pluginsz.dir"',
       '  did you mean "plugins.dir"?',
       'config error: adapter.type: expected one of "mock", "transcript", "irc", got "slack"',
-      '  at PLUGBOT_ADAPTER__TYPE  key "adapter.type"',
+      '  at env PLUGBOT_ADAPTER__TYPE  key "adapter.type"',
       "config error: storage.file: missing required key, but it is absent",
       '  at config.json  key "storage.file"',
     ]);

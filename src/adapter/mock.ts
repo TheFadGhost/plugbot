@@ -61,7 +61,11 @@ export class MockAdapter extends BaseAdapter {
   constructor(options: MockAdapterOptions & { clock?: Clock } = {}) {
     super();
     this.clock = options.clock ?? systemClock;
-    this.botUser = { id: options.botUserId ?? "u-plugbot", username: "plugbot", isBot: true };
+    this.botUser = {
+      id: options.botUserId ?? `u-${options.botUsername ?? "plugbot"}`,
+      username: options.botUsername ?? "plugbot",
+      isBot: true,
+    };
     this.registerUser(this.botUser);
     this.registerUser({ id: "u-alice", username: "alice" });
     this.registerUser({ id: "u-bob", username: "bob" });

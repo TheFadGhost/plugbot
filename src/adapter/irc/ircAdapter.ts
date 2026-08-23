@@ -1,6 +1,6 @@
 import * as net from "node:net";
 import type { Clock, ClockTimeout } from "../../clock.js";
-import { AdapterOperationError, CapabilityError } from "../../errors.js";
+import { AdapterOperationError, CapabilityError, ConfigError } from "../../errors.js";
 import type { PlugbotError } from "../../errors.js";
 import { BaseAdapter } from "../adapter.js";
 import type { AdapterHost, AdapterStartOptions, Capabilities } from "../adapter.js";
@@ -183,6 +183,7 @@ export class IrcAdapter extends BaseAdapter {
   private messageCounter = 0;
   private pingSequence = 0;
   private lineBuffer = "";
+  private lastWriteError: string | null = null;
   private lastTrafficMs = 0;
   private connectionEstablishedMs = 0;
   private pendingPongToken: string | null = null;
@@ -202,6 +203,17 @@ export class IrcAdapter extends BaseAdapter {
     this.nick = options.nick;
     this.clock = deps?.clock ?? SYSTEM_CLOCK;
     this.random = deps?.random ?? Math.random;
+    if (options.outboundRateLimit !== undefined) {
+      const { messagesPerSecond, burst } = options.outboundRateLimit;
+      const invalid: string[] = [];
+      if (!Number.isFinite(messagesPerSecond) || messagesPerSecond <= 0) {
+        invalid.push(`adapter.options.outboundRateLimit.messagesPerSecond must be a positive number, got ${messagesPerSecond}`);
+      }
+      if (!Number.isFinite(burst) || burst <= 0) {
+        invalid.push(`adapter.options.outboundRateLimit.burst must be a positive number, got ${burst}`);
+      }
+      if (invalid.length > 0) throw new ConfigError(invalid.join("; "), { source: "adapter.options" });
+    }
     this.socketFactory =
       deps?.socketFactory ?? ((host: string, port: number) => net.connect({ host, port }));
     const rateLimit = options.outboundRateLimit ?? DEFAULT_RATE_LIMIT;
@@ -242,7 +254,9 @@ export class IrcAdapter extends BaseAdapter {
     }
     const target = this.resolveSendTarget(channelId);
     await this.acquireSendSlot();
-    const payload = truncateToBytes(sanitizeLineBreaks(text), MAX_PRIVMSG_BYTES);
+    const overheadBytes = Buffer.byteLength(`PRIVMSG ${target} :`, "utf8");
+    const payloadBudget = Math.max(64, MAX_PRIVMSG_BYTES - overheadBytes);
+    const payload = truncateToBytes(sanitizeLineBreaks(text.replace(/\0/g, "")), payloadBudget);
     try {
       this.writeLine(`PRIVMSG ${target} :${payload}`);
     } catch (cause) {
@@ -730,7 +744,13 @@ export class IrcAdapter extends BaseAdapter {
   private writeLine(line: string): void {
     const socket = this.socket;
     if (socket === null || socket.destroyed) throw new Error("socket unavailable");
-    socket.write(`${line}${LINE_SEPARATOR}`);
+    const flushed = socket.write(`${line}${LINE_SEPARATOR}`, (error) => {
+      if (error !== undefined && error !== null) this.lastWriteError = error.message;
+    });
+    if (!flushed) {
+      // high-water mark reached; backpressure is bounded by the rate limiter
+      // and a dead connection fails pending sends via failInFlightSends
+    }
   }
 
   private writeLineSafe(line: string): void {

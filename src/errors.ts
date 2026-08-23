@@ -127,22 +127,6 @@ export class CircuitOpenError extends PlugbotError {
   }
 }
 
-export class CommandUnknownError extends PlugbotError {
-  constructor(commandPath: string) {
-    super("COMMAND_UNKNOWN", `unknown command "${commandPath}"`, { commandPath });
-  }
-}
-
-export class ArgumentValidationError extends PlugbotError {
-  constructor(commandPath: string, problems: string[]) {
-    super(
-      "COMMAND_ARGUMENT_INVALID",
-      `invalid arguments for "${commandPath}": ${problems.join("; ")}`,
-      { commandPath, problems: [...problems] },
-    );
-  }
-}
-
 export class PermissionDeniedError extends PlugbotError {
   constructor(commandPath: string, userId: string) {
     super("PERMISSION_DENIED", `user "${userId}" may not run "${commandPath}"`, {

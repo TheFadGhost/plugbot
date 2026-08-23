@@ -130,7 +130,8 @@ export class TranscriptAdapter extends BaseAdapter {
 
   async send(channelId: string, text: string, options?: SendOptions): Promise<SentMessageRef> {
     const suffix = options?.threadId === undefined ? "" : ` [thread=${options.threadId}]`;
-    const line = `${BOT_USERNAME} -> #${channelId}: ${text}${suffix}`;
+    const lineText = text.replace(/\r?\n/g, " ");
+    const line = `${BOT_USERNAME} -> #${channelId}: ${lineText}${suffix}`;
     this.ensureChannel(channelId, "channel", channelId);
     this.recordedOutput.push(line);
     this.persistLine(line);

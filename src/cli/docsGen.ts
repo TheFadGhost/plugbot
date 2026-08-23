@@ -1,4 +1,5 @@
-import type { CatalogCommand, CommandCatalog } from "../router/catalog.js";
+import type { CatalogCommand, CommandCatalog, CommandTrieNode } from "../router/catalog.js";
+import { buildCommandTrie } from "../router/catalog.js";
 import { argumentDocs, usageLine } from "../router/usage.js";
 
 export interface MarkdownDocsOptions {
@@ -6,27 +7,7 @@ export interface MarkdownDocsOptions {
   prefix?: string;
 }
 
-interface DocsNode {
-  entry?: CatalogCommand;
-  readonly children: Map<string, DocsNode>;
-}
-
-function docsChild(parent: DocsNode, name: string): DocsNode {
-  let child = parent.children.get(name);
-  if (child === undefined) {
-    child = { children: new Map() };
-    parent.children.set(name, child);
-  }
-  return child;
-}
-
-function insertDocs(root: DocsNode, entry: CatalogCommand): void {
-  let node = root;
-  for (const segment of entry.path) node = docsChild(node, segment);
-  if (node.entry === undefined) node.entry = entry;
-}
-
-function renderDocsNode(node: DocsNode, level: number, prefix: string, lines: string[]): void {
+function renderDocsNode(node: CommandTrieNode, level: number, prefix: string, lines: string[]): void {
   for (const child of node.children.values()) {
     const entry = child.entry;
     if (entry === undefined) continue;
@@ -58,8 +39,7 @@ export function generateMarkdownDocs(catalog: CommandCatalog, opts: MarkdownDocs
   const lines: string[] = [`# ${opts.title}`, ""];
   for (const plugin of [...groups.keys()].sort((a, b) => a.localeCompare(b))) {
     lines.push(`## ${plugin}`, "");
-    const root: DocsNode = { children: new Map() };
-    for (const entry of groups.get(plugin)!) insertDocs(root, entry);
+    const root = buildCommandTrie(groups.get(plugin)!);
     renderDocsNode(root, 3, prefix, lines);
   }
   return `${lines.join("\n").trimEnd()}\n`;

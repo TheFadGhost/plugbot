@@ -72,8 +72,3 @@ export function applyPluginConfig(
   }
   return resolved;
 }
-
-export function pluginConfigFailure(pluginFile: string, cause: unknown): PluginLoadError {
-  const reason = cause instanceof Error ? cause.message : String(cause);
-  return new PluginLoadError(pluginFile, reason, cause);
-}

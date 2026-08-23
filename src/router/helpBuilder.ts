@@ -1,4 +1,5 @@
-import type { CatalogCommand, CommandCatalog } from "./catalog.js";
+import type { CatalogCommand, CommandCatalog, CommandTrieNode } from "./catalog.js";
+import { buildCommandTrie } from "./catalog.js";
 import { argumentDocs, usageLine } from "./usage.js";
 
 export const HELP_COMMAND = "help";
@@ -7,40 +8,7 @@ export interface HelpOptions {
   prefix?: string;
 }
 
-interface HelpNode {
-  entry?: CatalogCommand;
-  readonly children: Map<string, HelpNode>;
-}
-
-function childOf(parent: HelpNode, name: string): HelpNode {
-  let child = parent.children.get(name);
-  if (child === undefined) {
-    child = { children: new Map() };
-    parent.children.set(name, child);
-  }
-  return child;
-}
-
-function insert(root: HelpNode, entry: CatalogCommand): void {
-  let node = root;
-  for (const segment of entry.path) node = childOf(node, segment);
-  if (node.entry === undefined) node.entry = entry;
-}
-
-function linkAliases(root: HelpNode, entry: CatalogCommand): void {
-  const aliases = entry.aliases;
-  if (aliases === undefined || aliases.length === 0 || entry.path.length === 0) return;
-  let parent: HelpNode | undefined = root;
-  for (const segment of entry.path.slice(0, -1)) {
-    parent = parent.children.get(segment);
-    if (parent === undefined) return;
-  }
-  const leaf = parent.children.get(entry.path[entry.path.length - 1]!);
-  if (leaf === undefined) return;
-  for (const alias of aliases) {
-    if (!parent.children.has(alias)) parent.children.set(alias, leaf);
-  }
-}
+type HelpNode = CommandTrieNode;
 
 function isVisible(node: HelpNode): boolean {
   return node.entry !== undefined && node.entry.hidden !== true;
@@ -80,8 +48,7 @@ export function buildHelpOverview(catalog: CommandCatalog, options: HelpOptions 
   const lines: string[] = ["Commands:"];
   const groups = groupByPlugin(visible);
   for (const plugin of [...groups.keys()].sort((a, b) => a.localeCompare(b))) {
-    const root: HelpNode = { children: new Map() };
-    for (const entry of groups.get(plugin)!) insert(root, entry);
+    const root: HelpNode = buildCommandTrie(groups.get(plugin)!);
     renderOverview(root, 1, lines);
   }
   lines.push(`Run "${prefix}help <command>" for details.`);
@@ -95,9 +62,7 @@ export function buildHelpDetail(
 ): string[] | null {
   const prefix = options.prefix ?? "!";
   const visible = catalog.commands().filter((entry) => entry.hidden !== true);
-  const lookup: HelpNode = { children: new Map() };
-  for (const entry of visible) insert(lookup, entry);
-  for (const entry of visible) linkAliases(lookup, entry);
+  const lookup: HelpNode = buildCommandTrie(visible);
   let node: HelpNode | undefined = lookup;
   for (const token of pathTokens) {
     node = node.children.get(token);
