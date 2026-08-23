@@ -1,6 +1,6 @@
 {
   "name": "plugbot",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "A chat-bot framework where behaviour lives in plugins and chat platforms are pluggable adapters. Develop and test an entire bot against mock adapters without touching a real service.",
   "license": "MIT",
   "type": "module",
