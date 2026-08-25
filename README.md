@@ -1,5 +1,12 @@
 # Plugbot
 
+> **built with ox alpha**
+>
+> most of this was written in august 2026 during the free preview window of
+> [ox alpha](https://openrouter.ai/stealth/ox-alpha), an anonymous stealth model
+> that turned up on openrouter for about a week. i set the direction and reviewed
+> what came back. the tests are real and they pass — clone it and run them.
+
 A chat-bot framework where behaviour lives in plugins and chat platforms are pluggable adapters - built for developers who want bot logic that is testable and portable, developed entirely against mock adapters without touching a real chat service.
 
 ## Install
